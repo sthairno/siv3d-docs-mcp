@@ -1,0 +1,3 @@
+[submodule "siv3d.docs"]
+	path = siv3d.docs
+	url = https://github.com/Siv3D/siv3d.docs.git
