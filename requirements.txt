@@ -1,0 +1,6 @@
+fastmcp
+uvicorn
+scikit-learn
+numpy
+pydantic
+starlette
