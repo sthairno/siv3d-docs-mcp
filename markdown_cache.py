@@ -51,6 +51,8 @@ class MarkdownCache:
             self.vectorizer = TfidfVectorizer(stop_words='english')
             self.doc_vectors = self.vectorizer.fit_transform(self.documents)
 
+        print(f"[INFO] Loaded {len(self.documents)} Markdown documents from {self.directory}")
+
     def search(self, query: str, limit: int) -> List[MarkdownCacheItem]:
         """
         Perform a TF-IDF-based search over cached Markdown documents.
@@ -78,4 +80,6 @@ class MarkdownCache:
                     score=float(similarities[idx])
                 ))
 
+        print(f"[INFO] Found {len(results)} results for query '{query}'")
         return results
+    
