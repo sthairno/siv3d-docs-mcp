@@ -2,17 +2,11 @@ import os
 import glob
 from typing import List
 from pydantic import BaseModel
-from fastmcp import FastMCP
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-# Initialize FastMCP with server name
-mcp = FastMCP("Siv3D Docs Search", debug=True)
-
-MARKDOWN_DIR = "./siv3d.docs/en-us/docs"
-
-class SearchResult(BaseModel):
+class MarkdownCacheItem(BaseModel):
     file: str      # Relative path of the matched file
     content: str   # Full content of the matched file
     score: float   # TF-IDF cosine similarity score
@@ -45,7 +39,7 @@ class MarkdownCache:
                     content = f.read().strip()
                     if content:
                         self.documents.append(content)
-                        self.metadata.append(os.path.relpath(file_path, self.directory))
+                        self.metadata.append(os.path.relpath(file_path, self.directory).replace("\\", "/"))
             except Exception as e:
                 print(f"Error reading {file_path}: {e}")
 
@@ -57,16 +51,16 @@ class MarkdownCache:
             self.vectorizer = TfidfVectorizer(stop_words='english')
             self.doc_vectors = self.vectorizer.fit_transform(self.documents)
 
-    def search(self, query: str, limit: int = 10) -> List[SearchResult]:
+    def search(self, query: str, limit: int) -> List[MarkdownCacheItem]:
         """
         Perform a TF-IDF-based search over cached Markdown documents.
 
         Args:
             query (str): The search term or natural language query
-            limit (int): Maximum number of results to return (default: 10)
+            limit (int): Maximum number of results to return
 
         Returns:
-            List[SearchResult]: Ranked search results with file path, snippet, and score
+            List[MarkdownCacheItem]: Ranked search results with file path, snippet, and score
         """
         if not self.documents or self.doc_vectors is None:
             return []
@@ -78,30 +72,10 @@ class MarkdownCache:
         results = []
         for idx in ranked_indices:
             if similarities[idx] > 0:
-                results.append(SearchResult(
+                results.append(MarkdownCacheItem(
                     file=self.metadata[idx],
                     content=self.documents[idx],
                     score=float(similarities[idx])
                 ))
 
         return results
-
-# Initialize cache
-markdown_cache = MarkdownCache(MARKDOWN_DIR)
-
-@mcp.tool()
-def search_markdown(query: str, limit: int = 5) -> List[SearchResult]:
-    """
-    Search from Siv3D documentation for a given query using TF-IDF similarity.
-
-    Args:
-        query (str): Query string to search
-        limit (int): Maximum number of results (default: 5)
-
-    Returns:
-        List[SearchResult]: Matched files with content and relevance score
-    """
-    return markdown_cache.search(query, limit)
-
-if __name__ == "__main__":
-    mcp.run(transport="sse")
