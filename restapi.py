@@ -53,7 +53,7 @@ def search_docs(
             title="Limit",
             description="Maximum number of results to return",
         )
-    ] = 10
+    ] = 3
 ) -> List[SearchResult]:
     """
     Search Siv3D documentation for a given query using TF-IDF similarity.
