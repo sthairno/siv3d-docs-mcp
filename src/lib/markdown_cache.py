@@ -1,5 +1,6 @@
 import os
 import glob
+import re
 from typing import List
 from pydantic import BaseModel
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -10,7 +11,7 @@ class MarkdownCacheItem(BaseModel):
     file: str      # Relative path of the matched file
     content: str   # Full content of the matched file
     score: float   # TF-IDF cosine similarity score
-
+    
 class MarkdownCache:
     def __init__(self, directory: str):
         """
@@ -19,12 +20,19 @@ class MarkdownCache:
         Args:
             directory (str): Path to the directory containing Markdown files
         """
-        self.directory = directory
+        self.directory = os.path.abspath(directory)
         self.documents = []
         self.metadata = []
         self.vectorizer = None
         self.doc_vectors = None
+        self.cpp_symbol_pattern = re.compile(r'(::|->|\.)')
+        self.token_pattern = re.compile(r"(?u)\b\w\w+\b")
         self._load_documents()
+
+    def _cpp_tokenizer(self, text: str) -> List[str]:
+        return self.token_pattern.findall(
+            self.cpp_symbol_pattern.sub(" ", text)
+        )
 
     def _load_documents(self):
         """

@@ -5,22 +5,24 @@ from fastapi.params import Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 
-from markdown_cache import MarkdownCache
+from lib.markdown_cache import MarkdownCache
 
-load_dotenv()
 MARKDOWN_DIR = os.environ["MARKDOWN_DIR"]
-EN_BASE_URL = os.environ["EN_BASE_URL"]
-JA_BASE_URL = os.environ["JA_BASE_URL"]
+EN_BASE_URL = os.environ["EN_BASE_URL"].removesuffix('/') + "/"
+JA_BASE_URL = os.environ["JA_BASE_URL"].removesuffix('/') + "/"
 OPENAPI_SERVER_URL = os.environ.get("SERVER_URL", "http://localhost")
 
 # Initialize cache
 markdown_cache = MarkdownCache(MARKDOWN_DIR)
 
-app = FastAPI(servers=[
-    {"url": OPENAPI_SERVER_URL}
-])
+app = FastAPI(
+    title="Siv3D Documentation Search API",
+    description="Search Siv3D documentation using TF-IDF similarity.",
+    servers=[
+        {"url": OPENAPI_SERVER_URL}
+    ]
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,7 +36,32 @@ class SearchResult(BaseModel):
     url_en: str = Field(..., title="URL of the English documentation")
     url_ja: str = Field(..., title="URL of the Japanese documentation")
     content: str = Field(..., title="Full content of the matched document in Markdown format")
-    score: float = Field(..., title="Relevance score based on TF-IDF similarity")
+    score: str = Field(
+        ...,
+        title="Relevance score of the match",
+        description="High, Very High, Moderate, Weak, or Low based on TF-IDF similarity"
+    )
+
+def build_docs_url(base_url: str, file_path: str, include_anchor_link: bool = True) -> str:
+    """
+    Build the full URL for a documentation file.
+    
+    Args:
+        base_url (str): Base URL for the documentation
+        file_path (str): Relative path of the Markdown file
+        include_anchor_link (bool): Whether to include the anchor link in the URL
+    
+    Returns:
+        str: Full URL to the documentation file
+    """
+    path = file_path.removesuffix('.md').split('/')
+    if path[-2] == 'index':
+        del path[-2]
+
+    if include_anchor_link:
+        return base_url + '/'.join(path[:-2]) + f"#{path[-1]}"
+    else:
+        return base_url + '/'.join(path[:-2])
 
 @app.post("/search")
 def search_docs(
@@ -45,28 +72,26 @@ def search_docs(
             title="Query",
             description="Query string to search. Only English queries are supported"
         )
-    ],
-    limit: Annotated[
-        int,
-        Query(
-            ...,
-            title="Limit",
-            description="Maximum number of results to return",
-        )
-    ] = 3
+    ]
 ) -> List[SearchResult]:
     """
     Search Siv3D documentation for a given query using TF-IDF similarity.
     """
 
-    result = markdown_cache.search(query, limit)
+    result = markdown_cache.search(query, 10)
 
     return [
         SearchResult(
-            url_en=EN_BASE_URL + item.file.removesuffix('.md'),
-            url_ja=JA_BASE_URL + item.file.removesuffix('.md'),
+            url_en=build_docs_url(EN_BASE_URL, item.file),
+            url_ja=build_docs_url(JA_BASE_URL, item.file, include_anchor_link=False),
             content=item.content,
-            score=item.score
+            score=(
+                "High" if item.score >= 0.90 else
+                "Very High" if item.score >= 0.75 else
+                "Moderate" if item.score >= 0.50 else
+                "Weak" if item.score >= 0.30 else
+                "Low"
+            )
         ) for item in result
     ]
 
