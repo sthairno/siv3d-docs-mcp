@@ -59,9 +59,9 @@ def build_docs_url(base_url: str, file_path: str, include_anchor_link: bool = Tr
         del path[-2]
 
     if include_anchor_link:
-        return base_url + '/'.join(path[:-2]) + f"#{path[-1]}"
+        return base_url + '/'.join(path[:-1]) + f"#{path[-1]}"
     else:
-        return base_url + '/'.join(path[:-2])
+        return base_url + '/'.join(path[:-1])
 
 @app.post("/search")
 def search_docs(
