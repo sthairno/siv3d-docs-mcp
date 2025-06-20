@@ -19,7 +19,6 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
   build:
 
@@ -36,7 +35,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
@@ -97,3 +96,12 @@ jobs:
         # This step uses the identity token to provision an ephemeral certificate
         # against the sigstore community Fulcio instance.
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+      - name: Create Plan Run
+        if: ${{ github.repository == 'sthairno/siv3d-docs-mcp' }}
+        uses: hashicorp/tfc-workflows-github/actions/create-run@v1.0.0
+        id: plan-run
+        with:
+          workspace: ${{ vars.TF_WORKSPACE }}
+          token: ${{ secrets.TF_API_TOKEN }}
+          organization: ${{ vars.TF_CLOUD_ORGANIZATION }}
+          message: "Docker image published: ${{ steps.meta.outputs.tags }}"
